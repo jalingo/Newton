@@ -1,0 +1,185 @@
+#!/bin/bash
+
+conflictRESOLUTION()
+{
+	NaProvider=GOOD
+	NaStatus=GOOD
+	NaTiming=GOOD
+	BooleanMO=FALSE
+	BooleanP=FALSE
+	AttemptedEntry[0]=$1
+	AttemptedEntry[1]=FALSE
+	for i in {2..8}
+	   do
+		AttemptedEntry[$i]=$"$i"
+	   done
+
+	availableLOCATIONS ${AttemptedEntry[2]} ${AttemptedEntry[3]}
+
+	[[ $Locales != 0 ]] && checkPROVIDER ${AttemptedEntry[4]} ${AttemptedEntry[2]} ${AttemptedEntry[3]}
+
+	while [[ ${AttemptedEntry[0]} = PA ]]
+	   do
+		[[ $Locales = 0 || $BooleanP != TRUE ]] && AttemptedEntry[1]=TRUE
+
+		[[ $Locales != 0 && $BooleanP = TRUE ]] && echo "This entry will be overwritten:" && pr -l3 ./TMP_STO/LocatedEntries.data | sed 's/__/\t/g' && manOVER
+		[[ $BooleanMO = TRUE ]] && AttemptedEntry[1]=TRUE
+
+		AttemptedEntry[0]=FINISHED
+	   done
+
+	while [[ ${AttemptedEntry[0]} = NA ]]
+	   do
+		[[ $BooleanP = FALSE ]] && echo ${AttemptedEntry[4]} " is not available in " ${AttemptedEntry[3]} && NaProvider=BAD
+
+		if [[ $BooleanP = TRUE ]]
+		   then
+			timeCONFLICTS ${AttemptedEntry[2]} ${AttemptedEntry[5]} ${AttemptedEntry[6]} ${AttemptedEntry[4]}
+			membershipSTATUS ${AttemptedEntry[7]}
+		fi
+
+		if [[ $NaProvider = BAD || $NaStatus = BAD || $NaTiming = BAD ]]
+		   then
+			manOVER
+			[[ $BooleanMO = TRUE ]] && AttemptedEntry[1]=TRUE
+		fi
+
+		[[ $NaProvider = GOOD && $NaStatus = BAD && $NaTiming = BAD ]] && AttemptedEntry[1]=TRUE
+
+		AttemptedEntry[0]=FINISHED
+	   done
+
+	while [[ ${AttemptedEntry[0]} = FINISHED && ${AttemptedEntry[1]} = TRUE ]]
+	   do
+		echo "Confirm the following entry [Y/N]?"
+		[[ -n ${AttemptedEntry[8]} ]] && echo -e ${AttemptedEntry[2]} ": "\t ${AttemptedEntry[4]} " in " ${AttemptedEntry[3]}
+		[[ -z ${AttemptedEntry[8]} ]] && echo "${AttemptedEntry[2]}: ${AttemptedEntry[5]};${AttemptedEntry[6]} in ${AttemptedEntry[3]} with ${AttemptedEntry[4]} for ${AttemptedEntry[7]}" | tr "-" " " | tr ";" "-"
+
+		read Answer
+		yesNO $Answer
+
+		if [[ $BooleanY = TRUE ]]
+		   then
+			[[ -z ${AttemptedEntry[8]} ]] && echo "${AttemptedEntry[2]}__${AttemptedEntry[5]}__${AttemptedEntry[6]}__${AttemptedEntry[3]}__${AttemptedEntry[4]}__${AttemptedEntry[7]}__${AttemptedEntry[8]}" >> ./CALENDAR.DB
+			[[ -n ${AttemptedEntry[8]} ]] && echo "${AttemptedEntry[2]}__${AttemptedEntry[3]}__${AttemptedEntry[4]}__${AttemptedEntry[5]}" >> ./CALENDAR.DB # "__${AttemptedEntry[6]}__${AttemptedEntry[7]}" >> ./CALENDAR.DB
+		fi
+
+		AttemptedEntry[0]=COMPLETE
+	   done
+}
+
+timeCONFLICTS()
+{
+	NaDate=$1
+	NaT1=$2
+	NaT2=$3
+	NaProv=$4
+	TooShort=FALSE
+	NaDuration=$( rangeDURATION $NaT1 $NaT2 )
+
+	BooleanL=TRUE
+	[[ ${AttemptedEntry[3]} == "OC" && NaDuration -le 89 ]] && outcallLOCAL ${AttemptedEntry[7]} $NaDate $NaProv
+	[[ $BooleanL = FALSE ]] && TooShort=TRUE
+
+	[[ $NaDuration -le 59 ]] && TooShort=TRUE
+
+	timeSLOT $NaProv $NaDate $NaT1 $NaT2
+
+	[[ $TooShort = TRUE ]] && echo "Duration of appointment ($NaDuration) is too short!" && NaTiming=BAD
+	[[ $TimeSlot = b2b ]] && echo "Appointment is a back to back!" && NaTiming=BAD
+	[[ $TimeSlot = overlap ]] && echo "Appointment overlaps!" && NaTiming=BAD
+
+	[[ $TooShort = FALSE && $TimeSlot = clear ]] && NaTiming=GOOD
+}
+
+timeSLOT()
+{
+    TsP=$1
+    TsD=$2
+    Ts1=$3
+    Ts2=$4
+    TimeSlot=clear
+    Dir0="./TMP_STO/LocatedEntries"
+
+    ScheduleEntries=$( countENTRIES $TsP $TsD )
+
+    [[ $Ts1 -le 1100 ]] && TimeSlot="offhours"
+    [[ $Ts2 -gt 2300 || $Ts2 -le 800 ]] && TimeSlot="offhours"
+
+    if [[ $ScheduleEntries != 0 ]]
+       then
+            for i in {1..$ScheduleEntries}
+               do
+                    TmpStar=$( awk 'BEGIN {FS="__"} NR == '$i' { print $2 }' $Dir0 )
+                    TmpStop=$( awk 'BEGIN {FS="__"} NR == '$i' { print $3 }' $Dir0 )
+
+                    [[ $TmpStar -gt $Ts1 && $TmpStar -lt $Ts2 ]] && TimeSlot=overlap
+                    [[ $TmpStop -gt $Ts1 && $TmpStop -lt $Ts2 ]] && TimeSlot=overlap
+                    [[ $Ts1 -gt $TmpStar && $Ts2 -lt $TmpStop ]] && TimeSlot=overlap
+                    [[ $Ts2 -gt $TmpStar && $Ts2 -lt $TmpStop ]] && TimeSlot=overlap
+                    [[ $Ts1 = $TmpStop || $Ts2 = $TmpStar ]] && TimeSlot=b2b
+               done
+    fi
+}
+
+countENTRIES()
+{
+    CgP=$1
+    CgD=$2
+    Dir0="./CALENDAR.DB"
+    Dir1="./TMP_STO/LocatedEntries.data"
+
+    locateENTRY $Dir0 $CgD
+    locateAGAIN $CgP
+
+    Count=$( wc -l $Dir1 )
+
+    echo $Count
+}
+
+membershipSTATUS()
+{
+	Line=3
+	Field=4
+	Mbr=$1
+	locateFILE $Mbr
+	Membership=$( printFIELD $Directory $Line $Field )
+
+	if [[ $Membership = BANNED || $Membership = DEFUNCT || $Membership = APPROVED ]]
+	   then
+		echo "Client is not an ACTIVE member."
+		echo "CAUTION: Client's status is $Membership"
+		NaStatus=BAD
+	fi
+}
+
+availableLOCATIONS()
+{
+	CrDate=$1
+	CrLoc=$2
+	Dir0="./CALENDAR.DB"
+	Dir1="./TMP_STO/LocatedEntries.data"
+	Dir2="./TMP_STO/dump.data"
+
+	locateENTRY $Dir0 $NaDate
+	locateAGAIN $NaLoc
+
+	awk 'BEGIN { FS="__" } NF == 4 { print $0 }' $Dir1 > $Dir2				#will need to change to "NF == 6" after Polishing Module
+
+	Locales=$( wc -l $Dir2 )
+}
+
+checkPROVIDER()
+{
+	CrDir0="./CALENDAR.DB"
+	CrProv=$1
+	CrDat=$2
+	CrLoc=$3
+
+	locateENTRY $CrDir0 $CrDat
+	locateAGAIN $CrLoc $CrProv
+
+	awk 'BEGIN { FS="__" } NF == 4 { print $0 }' $CrDir1 > $CrDir2				#will need to change to "NF == 6" after Polishing Module
+
+	[[ $( wc -l $CrDir2 ) != 0 ]] && BooleanP=TRUE
+}

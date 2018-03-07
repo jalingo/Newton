@@ -1,0 +1,1591 @@
+#!/bin/bash
+
+touchFILES()
+{
+	mkdir ./TMP_STO
+	cd ./TMP_STO
+ 	touch results.data dump.data LocatedEntries.data
+	cd ..
+}
+
+setDIMENSIONS()
+{
+	DimWidth=$( stty -a | cut -f3 -d";" | head -1 | cut -f3 -d" " )
+
+	DimLength=$( stty -a | cut -f2 -d";" | head -1 | cut -f3 -d" " )
+}
+
+setGLOBALS()
+{
+	BooleanQ=FALSE
+	BooleanY=FALSE
+
+	Display=NULL
+	Options=NULL
+	Input=NULL
+	Response=NULL
+	SingleCharacter=X
+	Modifier=0
+	Count=0
+	CountX=0
+	CountY=0
+	Answer=N
+
+	Member=0000000000
+	Directory="./TMP_STO/dump.data"
+	File="./TMP_STO/dump.data"
+	Line=0
+	Field=0
+	Fields=0
+	Status=DEFUNCT
+	NewData=NULL
+
+	DimLength=45
+	DimWidth=134
+
+	declare -i Date
+	declare -i Date0
+	declare -i DateI
+	declare -i DateR
+	declare -i Time
+	declare -i Day
+	declare -i Month
+	declare -i Year
+	declare -i Year0
+	declare -i YearR
+	declare -i YearI
+	declare -i Dat
+	declare -i Day0
+	declare -i DayR
+	declare -i DayI
+	declare -i Month0
+	declare -i MonthR
+	declare -i MonthI
+	Location=NULL
+	Provider=NULL
+	Command=NULL
+}
+
+buildME()
+{
+	read -p "Incomplete Area"
+}
+
+userINTERFACE()
+{
+	until [[ $BooleanQ = TRUE ]]
+	   do
+		Display=UserInterface
+		loadINTERFACE $Display
+		Options=Numeric
+		Count=7
+		read Response
+		checkINPUT $Response $Options $Count
+
+		[[ $Response = 1 ]] && manageCLIENTS
+		[[ $Response = 2 ]] && determineDATE && weeklyVIEW $Date
+		[[ $Response = 3 ]] && managePROVIDERS
+		[[ $Response = 4 ]] && selectDATE && dailyVIEW $Date
+		[[ $Response = 5 ]] && selectMEMBER
+		[[ $Response = 6 ]] && selectMEMBER
+		[[ $Response = 7 ]] && testFUNCTION
+
+		if [[ $Response = [56] ]]
+		   then
+			locateFILE $Member
+			Line=3
+			Field=4
+			NewData=BANNED
+
+			[[ $Response = 5 ]] && printFIELD $Directory $Line $Field
+			[[ $Response = 6 ]] && changeFIELD $Directory $Line $Field $NewData && echo $Member" is BANISHED!"
+			read -p "PAUSE"
+		fi
+	   done
+
+	[[ $BooleanQ = TRUE ]] && cleanUP && exit
+}
+
+testFUNCTION()
+{
+	Date=010714
+
+	read -p "TEST RESULTS"
+}
+
+
+manageCLIENTS()
+{
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		Display=ManageClients
+		loadINTERFACE $Display
+		Options=Numeric
+		Count=7
+		read Response
+		checkINPUT $Response $Options $Count
+
+		[[ $BooleanQ != TRUE && $Response != 7 ]] && selectMEMBER
+
+		while [[ $BooleanQ != TRUE && $Member != [Xx] ]]
+		   do
+			[[ $Response != 7 ]] && locateFILE $Member
+			Line=3
+			Field=4
+			NewData=BANNED
+
+			[[ $Response = 1 ]] && printFIELD $Directory $Line $Field && read -p "PAUSE"
+			[[ $Response = 2 && $BooleanY = TRUE ]] && generateMEMBER
+			[[ $Response = 3 ]] && newSTATUS $Directory
+			[[ $Response = 4 ]] && Field=2 && makeCHANGE $Directory $Line $Field
+			[[ $Response = 5 ]] && loadEDIT
+			[[ $Response = 6 ]] && changeFIELD $Directory $Line $Field $NewData && read -p "Goodbye Asshole!"
+			if [[ $Response = 7 ]]
+			   then
+				awk 'BEGIN{FS="__"} /#XOM/ {print $2}' MEMBERS.DB/MEMBER/* | awk '/@/{print $0}' > ./TMP_STO/dump.data
+				awk 'BEGIN{FS="__"} /#XOM/ {print $2}' MEMBERS.DB/ALISTER/* | awk '/@/{print $0}' >> ./TMP_STO/dump.data
+				awk 'BEGIN{FS="__"} {print $0}' MEMBERS.DB/DEFUNCT/1234567890.mbr | awk '/@/{print $0}' | sed 's/__/, /g' >> ./TMP_STO/dump.data
+
+				cat ./TMP_STO/dump.data
+				read -p PAUSE
+			fi
+			Member=x
+		   done
+	   done
+
+	BooleanQ=FALSE
+}
+
+newSTATUS()
+{
+	File=$1
+	Line=3
+	Field=4
+
+	while [[ $SingleCharacter != [Cc] ]]
+	   do
+		Display=NewStatus
+        	loadINTERFACE $Display
+		read SingleCharacter
+		checkINPUT $SingleCharacter $Display
+
+		[[ $SingleCharacter = [Bb] ]] && Status=BANNED
+		[[ $SingleCharacter = [Aa] ]] && Status=APPROVED
+		[[ $SingleCharacter = [Dd] ]] && Status=DEFUNCT
+		[[ $SingleCharacter = [Mm] ]] && Status=MEMBER
+		[[ $SingleCharacter = [Ll] ]] && Status=ALISTER
+
+		[[ $SingleCharacter != [Cc] ]] && changeFIELD $File $Line $Field $Status
+
+		SingleCharacter=C
+	   done
+
+	moveMEMBER $Directory && echo $Member Placed
+	SingleCharacter=X
+}
+
+rmLINE()
+{
+	File=$1
+	Line=$2
+	Command="$Line"d
+
+	sed -i "$Command" $File
+}
+
+newLINE()
+{
+	File=$1
+
+	echo "" >> $File
+}
+
+countFIELDS()
+{
+	File=$1
+	Line=$2
+
+	Fields=$( awk 'BEGIN { FS="__" } { if ( NR=='$Line' ) { print NF } }' $File )
+}
+
+selectFIELD()
+{
+	File=$1
+	Line=$2
+
+	countFIELDS $File $Line
+
+	Display=SelectField
+	loadINTERFACE $Display
+	read Response
+
+	Options=Numeric
+	checkINPUT $Response $Display $Fields
+	Field=$Response
+}
+
+makeCHANGE()
+{
+	File=$1
+	Line=$2
+	Field=$3
+
+	echo "Current Entry:"
+	printFIELD $File $Line $Field | tr "-" " "
+
+	echo "New Entry:"
+	read NewData
+
+	NewData=$(spaceDASH "$NewData")
+
+	[[ $NewData != [Xx] ]] && changeFIELD $File $Line $Field $NewData
+
+	[[ $Field = 4 && $Line = 3 ]] && moveMEMBER $File
+}
+
+changeFIELD()
+{
+	File=$1
+	Line=$2
+	Field=$3
+	Data=$4
+
+	awk 'BEGIN { FS="__" } { if ( NR == '$Line') { sub (/.*/,"'$Data'",$'$Field') } { OFS="__"; $1=$1; print $0 } }' "$File" > ./TMP_STO/results.data
+	cat ./TMP_STO/results.data > $File && echo "Field Changed"
+
+	moveMEMBER $File
+}
+
+selectMEMBER()
+{
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		Display=SelectMember
+		loadINTERFACE $Display
+		read Member
+		checkINPUT $Member $Display
+
+		[[ $Member != [Xx] ]] && BooleanQ=TRUE
+	   done
+
+	BooleanQ=FALSE
+}
+
+checkINPUT()
+{
+	Input=$1
+	Options=$2
+	Modifier=$3
+
+	if [[ $Input != [Xx] ]]
+	   then
+		Display=IncorrectInput
+
+		while [[ $Options = NewStatus ]]
+		   do
+			while [[ $Input != [DdBbLlMmAaCcXx] ]]
+			   do
+				loadINTERFACE $Display
+				echo "[DdBbLlMmAaCcXx]:"
+				read Input
+			   done
+
+			SingleCharacter=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = CycleStatus ]]
+		   do
+			while [[ $Input != [CcPpFfAaXx] ]]
+			   do
+				loadINTERFACE $Display
+				echo "[CcPpFfAaXx]:"
+				read Input
+			   done
+
+			SingleCharacter=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = Numeric ]]
+		   do
+			while [[ $Input -gt $Modifier || $Input -lt 1  ]]
+			   do
+				loadINTERFACE $Display
+				echo "[1-$Modifier]:"
+				read Input
+
+				[[ $Input = [Xx] ]] && return
+			   done
+
+			Response=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = LoadEdit ]]
+		   do
+			while [[ $Input != [EeUuNnCc] ]]
+			   do
+				loadINTERFACE $Display
+				echo "[EeUuNnCc]:"
+				read Input
+			   done
+
+			SingleCharacter=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = SelectMember ]]
+		   do
+			Count=$( echo $Input | wc -c )
+
+			while [[ $Count != 10 && $Input > 9999900000 ]]
+			   do
+				loadINTERFACE $Display
+				echo "[XXXXXXXXXX]:"
+				read Input
+
+				[[ $Input = [Xx] ]] && return
+			   done
+
+			Member=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = SelectProvider ]]
+		   do
+			Count=$( echo $Input | awk '{printf $2}' )
+
+			while [[ -z $Count ]]
+			   do
+				loadINTERFACE $Display
+				echo "[First Name] [Last Name]:"
+				read Input
+
+				Count=$( echo $Input | awk '{printf $2}' )
+
+				[[ $Input = [Xx] ]] && return
+			   done
+
+			Provider=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = SelectLocation ]]
+		   do
+			while [[ $Input != SF && $Input != SJ && $Input != EV && $Input != SFO && $Input != BE && $Input != SD && $Input != NY && $Input != OC && $Input != [Xx] ]]
+			   do
+				loadINTERFACE $Display
+				echo "[XX] or [XXX]:"
+				read Input
+			   done
+
+			Location=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = SelectDate ]]
+		   do
+			while [[ 10#$Input -gt "311299" || 10#$Input -lt "010114" ]]
+			   do
+				loadINTERFACE $Display
+				echo "[DDMMYY]:"
+				read Input
+
+				[[ $Input = [Xx] ]] && return
+			   done
+
+			Date=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = Times ]]
+		   do
+			Count=$( echo "$Input" | wc -c )
+			while [[ $Input != *:*-*m && $Count != 9 ]]
+			   do
+				loadINTERFACE $Display
+				echo "[HH:MM-am]:"
+				read Input
+
+				[[ $Input = [Xx] ]] && return
+			   done
+
+			Time=$Input
+			Options=NULL
+		   done
+
+		while [[ $Options = CalendarNavigation ]]
+		   do
+			while [[ $Input != [24568RrTtAaNnCcVvEeDdOoLlUuSsXx] ]]
+			   do
+				loadINTERFACE $Display
+				echo "[24568 NRT ACV EDO LUS X]:"
+				read Input
+			   done
+
+			Navigation=$Input
+			Options=NULL
+		   done
+	fi
+
+	[[ $Input = [Xx] ]] && checkQUIT
+}
+
+managePROVIDERS()
+{
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		Display=ManageProviders
+		loadINTERFACE $Display
+		Options=Numeric
+		Count=4
+		read Response
+		checkINPUT $Response $Options $Count
+
+		while [[ $Response != [Xx] ]]
+		   do
+			if [[ $Response != 2 ]]
+			   then
+				selectPROVIDER
+
+				Count=$( grep -c "$Provider" ./PROVIDERS.DB )
+			   else
+				displayPROVIDERS
+			fi
+
+			if [[ $Count != 0 ]]
+			   then
+				[[ $Response = 1 ]] && adjustAVAILABILITY "$Provider"
+				[[ $Response = 3 ]] && echo "Provider already exists."
+				[[ $Response = 4 ]] && rmPROVIDER "$Provider" && echo "So long $Provider"
+			   else
+				[[ $Response != 3 && $Response != [Xx] ]] && echo "Provider not found."
+				[[ $Response = 3 ]] && addPROVIDER "$Provider" && echo $Provider added. | tr "-" " "
+			fi
+
+			read -p "PAUSE"
+
+			Response=x
+		   done
+	   done
+
+	BooleanQ=FALSE
+}
+
+adjustAVAILABILITY()
+{
+	Provider=$1
+
+	selectDATE
+	[[ $Date != [Xx] ]] && selectLOCATION
+	[[ $Date != [Xx] && $Location != [Xx] ]] && echo "Phone and Hotel Info (Or hit "x" for no comments):" && read Comment
+	[[ $Comment = [Xx] ]] && Comment="No Comment"
+
+	Comment=$( spaceDASH "$Comment" )
+
+	if [[ $Date != [Xx] && $Location != [Xx] ]]
+	   then
+		Modifier="PA"
+		conflictRESOLUTION "$Provider" $Location $Date $Modifier
+
+		echo $Date\__$Location\__$Provider\__$Comment >> ./CALENDAR.DB
+	fi
+}
+
+selectPROVIDER()
+{
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		Display=SelectProvider
+		loadINTERFACE $Display
+		read Provider
+		checkINPUT "$Provider" $Display
+
+		[[ $Provider != [Xx] ]] && Provider=$( spaceDASH "$Provider" ) && BooleanQ=TRUE
+	   done
+
+	BooleanQ=FALSE
+}
+
+loadINTERFACE()
+{
+	Display=$1
+	tput setaf 4
+	tput bold
+
+	if [[ $Display != LoadEdit && $Display != SelectLine && $Display != SelectProvider && $Display != IncorrectInput && $Display != NewStatus && $Display != SelectField && $Display != CalendarNavigation ]]
+	   then
+		clear
+
+		printf "%."$DimWidth"s" "===================================================================================================================================================================================================="
+		printf "=|N===N==|EEEE==|W=====W==|TTTTT===|OOO===|N===N="; printf "%."$(( $DimWidth - 49 ))"s" "=================================================================================================================================================="
+		printf "=|NN==N==|E=====|W=====W====|T====|O===O==|NN==N="; printf "%."$(( $DimWidth - 49 ))"s" "=================================================================================================================================================="
+		printf "=|N=N=N==|EEE===|W==W==W====|T====|O===O==|N=N=N="; printf "%."$(( $DimWidth - 49 ))"s" "=================================================================================================================================================="
+		printf "=|N==NN==|E======|W=W=W=====|T====|O===O==|N==NN="; printf "%."$(( $DimWidth - 49 ))"s" "=================================================================================================================================================="
+		printf "=|N===N==|EEEE====|W=W======|T=====|OOO===|N===N="; printf "%."$(( $DimWidth - 49 ))"s" "=================================================================================================================================================="
+		printf "%."$DimWidth"s" "===================================================================================================================================================================================================="
+		tput setaf 5
+		printf "%."$DimWidth"s" "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+		printf "%."$DimWidth"s" "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+		printf "%."$DimWidth"s\n" "~" "~" "~"
+
+	fi
+
+	tput setaf 3
+
+	[[ $Display = UserInterface ]] && printf "$(tput setaf 5)~$(tput setaf 3) Main Menu"
+	[[ $Display = UserInterface ]] && tput setaf 5 && printf "\n~$(tput setaf 2) 1. Manage Client List"
+	[[ $Display = UserInterface ]] && tput setaf 5 && printf "\n~$(tput setaf 1) 2. Enter Calendar Mode"
+	[[ $Display = UserInterface ]] && tput setaf 5 && printf "\n~$(tput setaf 6) 3. Manage Staff"
+	[[ $Display = UserInterface ]] && tput setaf 5 && printf "\n~$(tput setaf 1) 4. Look Up Specific Day"
+	[[ $Display = UserInterface ]] && tput setaf 5 && printf "\n~$(tput setaf 3) 5. Check Client Status"
+	[[ $Display = UserInterface ]] && tput setaf 5 && printf "\n~$(tput setaf 3) 6. instaBAN(tm)"
+	if [[ $Display = UserInterface ]]
+	   then
+		tput setaf 5
+
+		Length=$(( $DimLength - 25 ))
+		for i in { 1..$Length }
+		   do
+			printf "\n%."$DimWidth"s" "~"
+			printf "\n%."$DimWidth"s" "~"
+			printf "\n%."$DimWidth"s" "~"
+		   done
+	fi
+	[[ $Display = UserInterface ]] && tput setaf 3
+
+	[[ $Display = ManageClients ]] && tput setaf 5 && printf "~$(tput setaf 2) Client Database\n"
+	[[ $Display = ManageClients ]] && tput setaf 5 && echo "~"
+	[[ $Display = ManageClients ]] && printf "~$(tput setaf 2) 1. Check Client Status"
+	[[ $Display = ManageClients ]] && tput setaf 5 && printf "\n~$(tput setaf 2) 2. Create New Client"
+	[[ $Display = ManageClients ]] && tput setaf 5 && printf "\n~$(tput setaf 2) 3. Update Client Status"
+	[[ $Display = ManageClients ]] && tput setaf 5 && printf "\n~$(tput setaf 2) 4. Update Client eMail"
+	[[ $Display = ManageClients ]] && tput setaf 5 && printf "\n~$(tput setaf 2) 5. Load Client Details"
+	[[ $Display = ManageClients ]] && tput setaf 5 && printf "\n~$(tput setaf 2) 6. instaBAN(tm)"
+	[[ $Display = ManageClients ]] && tput setaf 5 && printf "\n~$(tput setaf 2) 7. Generate eMail listing"
+	if [[ $Display = ManageClients ]]
+	   then
+		tput setaf 5
+
+		Length=$(( $DimLength - 25 ))
+		for i in { 1..$Length }
+		   do
+			printf "\n%."$DimWidth"s" "~"
+			printf "\n%."$DimWidth"s" "~"
+			printf "\n%."$DimWidth"s" "~"
+		   done
+	fi
+	[[ $Display = ManageClients ]] && tput setaf 3
+
+	[[ $Display = ManageProviders ]] && tput setaf 6
+	[[ $Display = ManageProviders ]] && tput setaf 5 && printf "~$(tput setaf 6) Provider Listings\n"
+	[[ $Display = ManageProviders ]] && tput setaf 5 && printf "~"
+	[[ $Display = ManageProviders ]] && printf "\n~$(tput setaf 6) 1. Adjust Provider Schedule"
+	[[ $Display = ManageProviders ]] && tput setaf 5 && printf "\n~$(tput setaf 6) 2. Display Providers"
+	[[ $Display = ManageProviders ]] && tput setaf 5 && printf "\n~$(tput setaf 6) 3. Add Provider"
+	[[ $Display = ManageProviders ]] && tput setaf 5 && printf "\n~$(tput setaf 6) 4. Drop Provider"
+	if [[ $Display = ManageProviders ]]
+	   then
+		tput setaf 5
+
+		Length=$(( $DimLength - 25 ))
+		for i in { 1..$Length }
+		   do
+			printf "\n%."$DimWidth"s" "~"
+			printf "\n%."$DimWidth"s" "~"
+			printf "\n%."$DimWidth"s" "~"
+		   done
+	fi
+	[[ $Display = ManageProviders ]] && tput setaf 3
+
+	[[ $Display = Appointment ]] && echo "Creating Appointment..."
+	[[ $Display = SelectLocation ]] && echo "[SF] [SJ] [EV] [SFO] [BE] [SD] [NY] :: [OC]"
+	[[ $Display = SelectDate ]] && echo "Enter Date [DDMMYY]:"
+	[[ $Display = SelectMember ]] && echo "Enter Client Telephone, numeric digits only."
+	[[ $Display = SelectLine ]] && echo "Select Line by number:"
+	[[ $Display = SelectField ]] && echo "Select Field by number, out of $Fields:"
+	[[ $Display = SelectProvider ]] && echo "Enter Provider's Name:"
+	[[ $Display = SelectA ]] && echo "Enter the parameters of the appointment:"
+	[[ $Display = SelectR ]] && echo "Identify the appointment..."
+
+	echo ""
+
+	[[ $Display = CalendarNavigation ]] && echo " [N]ew Appointment      [A]djust Providers       [E]dit Phone/Hotel/Rm#      [L]eap To A Day                                     8      Next Week"
+	[[ $Display = CalendarNavigation ]] && echo " [R]emove an Entry      [C]hange App Status      [D]isplay eMail Onlies      [U]pdate Member                                     ^"
+	[[ $Display = CalendarNavigation ]] && echo " [T]oggle DAY/WEEK      [V]erify Membership      [O]utcall Address Info      [S]earch eMails                                  4< 5 >6   Adjust Day"
+	[[ $Display = CalendarNavigation ]] && echo "                                                                                                                                 v"
+	[[ $Display = CalendarNavigation ]] && echo " e[X]it                                                                                                                          2      Last Week"
+
+	[[ $Display = SelectLocation || $Display = SelectDate || $Display = ManageClients || $Display = ManageProviders || $Display = SelectLine || $Display = SelectMember || $Display = LoadInterface || $Display = UserInterface || $Display = SelectProvider ]] && echo "[x] to EXIT"
+
+	[[ $Display = CheckQuit ]] && echo "Are you sure you'd like to exit [Y/N]?"
+	[[ $Display = IncorrectInput ]] && echo "Incorrect Format; please try again."
+
+	[[ $Display = CycleStatus ]] && echo "[P]ending   [A]ctive   [F]inished   [C]ancel"
+	[[ $Display = NewStatus ]] && echo "[B]anned   [A]pproved   [D]efunct   [M]ember   A[L]ister   [C]ancel"
+	[[ $Display = LoadEdit ]] && echo "[E]rase Line   [U]pdate Field   [N]ew Line   E[x]it"
+
+	echo ""
+}
+
+moveMEMBER()
+{
+	File=$1
+	Line=3
+	Field=4
+
+	Status=$( printFIELD $File $Line $Field )
+
+	Directory="./MEMBERS.DB/$Status/$Member.mbr"
+
+	[[ $File != $Directory ]] && mv $File $Directory
+}
+
+locateFILE()
+{
+	Member=$1
+	BooleanF=FALSE
+
+	[[ -z $Member ]] && selectMEMBER
+
+	find -name "$Member.*" > ./TMP_STO/LocatedEntries.data
+	read Directory < ./TMP_STO/LocatedEntries.data
+
+	if [[ -z $Directory && $Member != [Xx] ]]
+	   then
+		echo $Member" not found."
+		Directory="~/Newton/MEMBERS.DB/empty.member"
+		echo "Add "$Member" to the lists[Y/N]?"
+		read Answer
+		yesNO $Answer
+		[[ $BooleanY = TRUE ]] && Response=0 && generateMEMBER
+		BooleanY=FALSE
+	fi
+}
+
+checkQUIT()
+{
+	Display=CheckQuit
+	loadINTERFACE $Display
+	read Answer
+	yesNO $Answer
+
+	[[ $BooleanY = TRUE ]] && BooleanQ=TRUE && echo Exiting
+	[[ $BooleanY = FALSE ]] && BooleanQ=FALSE && echo Staying
+}
+
+leapYEAR()
+{
+	Dat=$1
+	BooleanL=FALSE
+
+	Year=$( echo $Dat | cut -c5-6 )
+
+	[[ $(( $Year % 4)) -eq 0 ]] && BooleanL=TRUE
+}
+
+isolateMONTH()
+{
+	Dat=$1
+
+	Month=$( echo $Dat | cut -c3-4 )
+}
+
+yesNO()
+{
+	Answer=$1
+
+	Answer=$( echo $Answer | cut -c1 )
+
+	[[ $Answer = y || $Answer = Y ]] && BooleanY=TRUE
+	[[ $Answer = n || $Answer = N ]] && BooleanY=FALSE
+}
+
+generateMEMBER()
+{
+	Line=3
+	Field=4
+
+	Directory="./MEMBERS.DB/DEFUNCT/$Member.mbr"
+	[[ $Member != "[Xx]" ]] && cp ./MEMBERS.DB/empty.member $Directory && echo $Member initialized
+
+	if [[ $Member != "[Xx]" ]]
+	   then
+		echo $Member"'s Status:"
+		printFIELD $Directory $Line $Field
+		newSTATUS $Directory
+
+		Field=2
+		echo $Member"'s eMail address..."
+		makeCHANGE $Directory $Line $Field
+
+		dateSTAMP $Directory
+
+		echo $Member created
+	   fi
+}
+
+dateSTAMP()
+{
+	File=$1
+	Line=3
+	Field=3
+
+	determineYEAR
+
+	changeFIELD $File $Line $Field $Year
+}
+
+determineDATE()
+{
+	determineDAY
+	determineMONTH
+	determineYEAR
+	Year=$( echo $Year | cut -c3-4 )
+
+	Date="$Day$Month$Year"
+
+	echo $Date
+}
+
+determineDAY()
+{
+	Day=$( date | cut -c9-10 )
+	Count=$( echo $Day | wc -c )
+
+	[[ $Count = 2 ]] && Day="0$( echo $Day )"
+}
+
+determineMONTH()
+{
+	Month=$( date | cut -c5-7 )
+
+	[[ $Month = Jan ]] && Month=01
+	[[ $Month = Feb ]] && Month=02
+	[[ $Month = Mar ]] && Month=03
+	[[ $Month = Apr ]] && Month=04
+	[[ $Month = May ]] && Month=05
+	[[ $Month = Jun ]] && Month=06
+	[[ $Month = Jul ]] && Month=07
+	[[ $Month = Aug ]] && Month=08
+	[[ $Month = Sep ]] && Month=09
+	[[ $Month = Oct ]] && Month=10
+	[[ $Month = Nov ]] && Month=11
+	[[ $Month = Dec ]] && Month=12
+}
+
+determineTIME()
+{
+	CountX=$( date | awk ' { print NF } ' )
+
+	CountY=$(($CountX - 1))
+
+	Time=$( date | cut -f$CountY -d" " | cut -f1-2 -d":" | tr -d ":" )
+
+	Time=$( convertTIME $Time )
+}
+
+rangeDURATION()
+{
+	TR1=$1
+	TR2=$2
+
+	TR1A=$( breakDOWN $TR1 )
+	TR1A=$(( $(( $( cut -c-2 | s/^0*// ) * 60 )) + $( cut -c3- ) ))
+	TR2A=$( breakDOWN $TR2 )
+	TR2A=$(( $(( $( cut -c-2 | s/^0*// ) * 60 )) + $( cut -c3- ) ))
+
+	Duration=$(( $TR2 - $TR1 ))
+
+	echo $Duration
+}
+
+breakDOWN()
+{
+	T2=$1
+	SingleCharacter=$( echo $T2 | cut -c7 )
+	T2H=$( echo $T2 | cut -c-2 )
+	T2M=$( echo $T2 | cut -c4-5 )
+
+	[[ $SingleCharacter = [Aa] ]] && BooleanAP=am
+	[[ $SingleCharacter = [Pp] ]] && BooleanAP=pm
+
+	[[ $BooleanAP = pm ]] && T2H=$(( $T2H + 12 ))
+
+	T3="$T2H$T2M"
+
+	echo $T3
+}
+
+convertTIME()
+{
+	T0=$1
+	T0=$( echo T0 | sed 's/^0*//' )
+	BooleanAP=am
+
+	[[ $T0 -gt 1259 ]] && T0=$(( $T0 - 1200 )) && BooleanAP=pm
+
+	T0H=$( echo $T0 | cut -c-2 )
+	T0M=$( echo $T0 | cut -c3- )
+
+	DisplayTime="$T0H:$T0M $BooleanAP"
+}
+
+determineYEAR()
+{
+	CountX=$( date | wc -c )
+
+	CountY=$(($CountX - 4))
+
+	Year=$( date | cut -c$CountY-$CountX )
+}
+
+displayPAGE()
+{
+	File=$1
+
+	Count=$( cat $File | wc -c )
+
+	loadINTERFACE
+
+	[[ $Count != 0 ]] && echo $File && cat $File | pr -n -l30 | sed 's/__/\t\t/g' | tr "-" " "
+	[[ $Count = 0 ]] && echo "No Data"
+
+	echo ""
+}
+
+printFIELD()
+{
+	File=$1
+	Line=$2
+	Field=$3
+
+	awk 'BEGIN { FS="__" } { if ( NR=='$Line' ) { print $'$Field' } }' "$File"
+}
+
+cleanUP()
+{
+	reset
+
+	determineDATE
+	tar czf ./BACKuPS/m/"$Date"m.tar.gz MEMBERS.DB/
+	tar czf ./BACKuPS/c/"$Date"c.tar CALENDAR.DB
+
+	rm TMP_STO/*
+	rm -R ./TMP*
+
+	echo Goodbye
+}
+
+loadEDIT()
+{
+	until [[ $BooleanQ = TRUE ]]
+	   do
+		displayPAGE $Directory
+
+		Display=LoadEdit
+		loadINTERFACE $Display
+		read SingleCharacter
+		checkINPUT $SingleCharacter $Display
+
+		if [[ $SingleCharacter != [Nn] ]]
+		   then
+			[[ $SingleCharacter != [Xx] ]] && selectLINE $Directory
+			[[ $SingleCharacter = [Ee] ]] && rmLINE $Directory $Line
+			[[ $SingleCharacter = [Uu] ]] && selectFIELD $Directory $Line && makeCHANGE $Directory $Line $Response
+		   else
+			newLINE $Directory
+		fi
+	   done
+
+	BooleanQ=FALSE
+}
+
+selectLINE()
+{
+	File=$1
+
+	Options=Numeric
+	Display=SelectLine
+	loadINTERFACE $Display
+	read Response
+
+	Count=$(wc -l $File | cut -d" " -f1)
+
+	checkINPUT $Response $Options $Count
+	Line=$Response
+}
+
+displayPROVIDERS()
+{
+	Anchor0=$1
+	Anchor1=$2
+
+	[[ -z $Anchor0 && -z $Anchor1 ]] && loadINTERFACE && cat ./PROVIDERS.DB | pr -l30 -n | tr "-" " "
+	[[ -n $Anchor0 && -n $Anchor1 ]] && grep $Anchor0 ./CALENDAR.DB | grep $Anchor1 | awk 'BEGIN { FS="__" } NF != 7 { print $3 }' | tr "-" " "
+}
+
+addPROVIDER()
+{
+	Provider=$1
+
+	Provider=$( spaceDASH "$Provider" )
+
+	[[ $Provider != [Xx] ]] && echo $Provider >> ./PROVIDERS.DB
+}
+
+rmPROVIDER()
+{
+	Provider=$1
+
+	Line=$( grep -n -x "$Provider" ./PROVIDERS.DB | cut -c1 )
+
+	Command="$Line"d
+
+	sed -i "$Command" ./PROVIDERS.DB
+}
+
+determineWKDY()
+{
+	DateW=$1
+	[[ -z $DateW ]] && DateW=$( determineDATE )
+
+	separateDATE $DateW
+	DateW=$Year0$Month0$Day0
+
+	WkDy=$( date -d$DateW | cut -d" " -f1 )
+}
+
+dailyVIEW()
+{
+	Date=$1
+	determineWKDY $Date
+
+	[[ $Date = [Xx] ]] && BooleanQ=TRUE
+
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		Display=NULL
+		loadINTERFACE $Display
+
+		tput setaf 2
+		printf "\n%."$DimWidth"s" "$Date| $WkDy--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------" && echo -e "\n"
+		cat ./CALENDAR.DB | grep -i -e $Date | sort -u | awk 'BEGIN{FS="__"} NF == 4 {print $3"\t: "$2"\t\t"$4}' | tr "-" " "
+		cat ./CALENDAR.DB | grep -i -e $Date | awk 'BEGIN{FS="__"} NF == 7 {print $6" with "$5"\t\t\t"$2" to "$3"\tin "$4"\t\t\t"$7}' | tr "-" " " | sort -k6 -k5.1,5.5
+
+		viewNAVIGATION
+
+		[[ $Navigation = [Tt] ]] && weeklyVIEW $Date && BooleanQ=TRUE
+	   done
+
+	BooleanQ=FALSE
+}
+
+viewNAVIGATION()
+{
+	Display=CalendarNavigation
+	loadINTERFACE $Display
+	read Navigation
+	checkINPUT $Navigation $Display
+
+	[[ $Navigation = 4 ]] && Date=$( reduceDATE $Date )
+	[[ $Navigation = 6 ]] && Date=$( increaseDATE $Date )
+	if [[ $Navigation = 2 ]]
+	   then
+		for i in {1..5}
+		   do
+			Date=$( reduceDATE $Date )
+		   done
+	fi
+	if [[ $Navigation = 8 ]]
+	   then
+		for i in {1..5}
+		   do
+			Date=$( increaseDATE $Date )
+		   done
+	fi
+	[[ $Navigation = 5 ]] && Date=$( determineDATE )
+	[[ $Navigation = [Rr] ]] && rmAPPT $Date
+	[[ $Navigation = [Aa] ]] && selectPROVIDER && adjustAVAILABILITY "$Provider"
+	[[ $Navigation = [Nn] ]] && Modifier=A && selectionSERIES $Modifier
+	[[ $Navigation = [Cc] ]] && cycleSTATUS $Date
+	[[ $Navigation = [Vv] ]] && selectMEMBER && [[ $Member != [Xx] ]] && locateFILE $Member && Line=3 && Field=4 && printFIELD $Directory $Line $Field && read -p "PAUSE"
+	[[ $Navigation = [Ee] ]] && Directory="./CALENDAR.DB" && Field=4 && echo -e "\n\n\nLn#" && pr -n $Directory | grep $Date | awk 'BEGIN{FS="__"} NF == 4 { print $1")\t"$3": "$2"\t|\t\t"$4 }' |  tr "-" " " && echo "" && selectLINE $Directory && [[ $Line != [Xx] ]] && makeCHANGE $Directory $Line $Field
+	[[ $Navigation = [Dd] ]] && Member=1234567890 && locateFILE $Member && displayPAGE $Directory | sed 's/\t\t/\t/g' && read -p PAUSE
+	[[ $Navigation = [Oo] ]] && selectMEMBER && locateFILE $Member && Field=2 && Line=7 && printFIELD $Directory $Line $Field | tr "-" " " && read -p PAUSE
+	[[ $Navigation = [Ll] ]] && selectDATE
+	[[ $Navigation = [Uu] ]] && selectMEMBER && locateFILE $Member && loadEDIT
+	[[ $Navigation = [Ss] ]] && emailQUERY
+}
+
+emailQUERY()
+{
+	echo "Enter search parameter [i.e. portion of or complete eMail address]:"
+	read Parameter
+
+	grep "$Parameter" ./MEMBERS.DB/*/*
+
+	read -p PAUSE
+}
+
+cycleSTATUS()
+{
+	Date=$1
+	Directory="./CALENDAR.DB"
+
+	[[ -z $Date ]] && selectDATE
+
+	pr -n -l1 $Directory | grep $Date | awk ' BEGIN{FS="__"} NF == 7 { print $1" / "$5" ("$2" to "$3"):\t"$7 } '| tr "-" " " | sort -ru
+
+	if [[ $Date != [Xx] ]]
+	   then
+		selectLINE $Directory
+		[[ $Line != [Xx] ]] && Display=CycleStatus && loadINTERFACE $Display && read SingleCharacter && checkINPUT $SingleCharacter $Display
+	   else
+		BooleanQ=FALSE && SingleCharacter=X
+	fi
+
+	Field=7
+	[[ $SingleCharacter = [Cc] ]] && NewData="CANX'D"
+	[[ $SingleCharacter = [Aa] ]] && NewData="ACTIVE"
+	[[ $SingleCharacter = [Pp] ]] && NewData="PENDNG"
+	[[ $SingleCharacter = [Ff] ]] && NewData="FINISH"
+	[[ $SingleCharacter = [CcAaPpFf] ]] && changeFIELD $Directory $Line $Field $NewData
+}
+
+weeklyVIEW()
+{
+	Date=$1
+
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		Display=NULL
+		loadINTERFACE $Display
+
+		DateWV=$( reduceDATE $Date )
+		DateWV=$( reduceDATE $DateWV )
+
+		for i in {1..5}
+		   do
+			determineWKDY $DateWV
+
+			tput setaf 7
+			[[ $i = 3 ]] && tput setaf 3
+			printf "\n%."$DimWidth"s\n" "$DateWV| $WkDy================================================================================================================================================================================================================================================================================"
+#			printf "\n%."$DimWidth"s\n" "$DateWV| $WkDy--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
+
+			[[ $i = 3 ]] && tput setaf 7
+			cat ./CALENDAR.DB | grep -i -e $DateWV | sort -u | awk 'BEGIN{FS="__"} NF == 4 {print $3"\t: "$2"\t\t"$4}' | tr "-" " "
+			tput sgr 1 0
+			[[ $i = 1 || $i = 2 ]] && tput setaf 5 sgr 0 0
+			[[ $i = 3 ]] && tput setaf 3
+			[[ $i = 4 || $i = 5 ]] && tput setaf 4
+			cat ./CALENDAR.DB | grep -i -e $DateWV | awk 'BEGIN{FS="__"} NF == 7 {print "   "$6" with "$5" \t\t "$2" to "$3"       in "$4" \t\t\t\t\t  "$7}' | tr "-" " " | sort -k6 -k5.1,5.5
+
+			DateWV=$( increaseDATE $DateWV )
+			tput sgr0
+		   done
+
+		viewNAVIGATION
+
+		[[ $Navigation = [Tt] ]] && dailyVIEW $Date && BooleanQ=TRUE
+	   done
+
+	BooleanQ=FALSE
+}
+
+selectDATE()
+{
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		Display=SelectDate
+		loadINTERFACE $Display
+		read Date
+		checkINPUT $Date $Display
+
+		BooleanQ=TRUE
+	   done
+
+	BooleanQ=FALSE
+}
+
+selectLOCATION()
+{
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		Display=SelectLocation
+		loadINTERFACE $Display
+		read Location
+		checkINPUT $Location $Display
+
+		BooleanQ=TRUE
+	   done
+
+	BooleanQ=FALSE
+}
+
+selectTIME()
+{
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		echo "[HH]:"
+		read T1H
+		[[ $T1H != [Xx] ]] && echo "[MM]:" && read T1M
+		[[ $T1H != [Xx] && $T1M != [Xx] ]] && echo "[AM/PM]:" && read APM
+
+		if [[ $T1H != [Xx] && $T1M != [Xx] && $1AP != [Xx] ]]
+		   then
+			SingleCharacter=$( echo $APM | cut -c1 )
+			[[ $SingleCharacter = [Aa] ]] && BooleanAP=am
+			[[ $SingleCharacter = [Pp] ]] && BooleanAP=pm
+
+			Time="$T1H:$T1M-$BooleanAP"
+
+			checkINPUT $Time "Times"
+
+		fi
+
+		[[ $Time != [Xx] ]] && BooleanQ=TRUE
+	   done
+
+	BooleanQ=FALSE
+}
+
+spaceDASH()
+{
+	Input=$1
+
+	echo $Input | tr " " "-"
+}
+
+locateENTRY()
+{
+	File=$1
+	Anchor=$2
+
+	grep -n "$Anchor" $File > ./TMP_STO/dump.data
+	cat ./TMP_STO/dump.data | cut -f1 -d":" > ./TMP_STO/LocatedEntries.data
+	cat ./TMP_STO/dump.data | wc -l > ./TMP_STO/results.data
+
+	read Lines < ./TMP_STO/results.data
+	[[ $Lines = 1 ]] && read Line < ./TMP_STO/LocatedEntries.data && echo Narrowed.
+	[[ $Lines = 0 ]] && echo "ZERO OCCURENCES DISCOVERED"
+}
+
+reDUX()
+{
+	Lines=$( awk -v Lines=$Lines 'BEGIN{FS="__"} { if (NF != 4) { Lines -= 1 } }' ./TMP_STO/LocatedEntries.data )
+}
+
+locateAGAIN()
+{
+	File=./TMP_STO/LocatedEntries.data
+	Anchor0=$1
+	Anchor1=$2
+	Anchor2=$3
+	Anchor3=$4
+
+	locateENTRY $File $Anchor0
+	[[ $Lines != 0 && -n $Anchor1 ]] && locateENTRY $File $Anchor1
+	[[ $Lines != 0 && -n $Anchor2 ]] && locateENTRY $File $Anchor2
+	[[ $Lines != 0 && -n $Anchor3 ]] && locateENTRY $File $Anchor3
+}
+
+
+conflictRESOLUTION()
+{
+    NaProvider=GOOD
+    NaStatus=GOOD
+    NaTiming=GOOD
+    BooleanMO=FALSE
+    BooleanP=FALSE
+    AttemptedEntry[0]=$1
+    AttemptedEntry[1]=FALSE
+    for i in {2..8}
+       do
+        AttemptedEntry[$i]=$"$i"
+       done
+
+    availableLOCATIONS ${AttemptedEntry[2]} ${AttemptedEntry[3]}
+
+    [[ $Locales != 0 ]] && checkPROVIDER ${AttemptedEntry[4]} ${AttemptedEntry[2]} ${AttemptedEntry[3]}
+
+    while [[ ${AttemptedEntry[0]} = PA ]]
+       do
+        [[ $Locales = 0 || $BooleanP != TRUE ]] && AttemptedEntry[1]=TRUE
+
+        [[ $Locales != 0 && $BooleanP = TRUE ]] && echo "This entry will be overwritten:" && pr -l3 ./TMP_STO/LocatedEntries.data | sed 's/__/\t/g' && manOVER
+        [[ $BooleanMO = TRUE ]] && AttemptedEntry[1]=TRUE
+
+        AttemptedEntry[0]=FINISHED
+       done
+
+    while [[ ${AttemptedEntry[0]} = NA ]]
+       do
+        [[ $BooleanP = FALSE ]] && echo ${AttemptedEntry[4]} " is not available in " ${AttemptedEntry[3]} && NaProvider=BAD
+
+        if [[ $BooleanP = TRUE ]]
+           then
+            timeCONFLICTS ${AttemptedEntry[2]} ${AttemptedEntry[5]} ${AttemptedEntry[6]} ${AttemptedEntry[4]}
+            membershipSTATUS ${AttemptedEntry[7]}
+        fi
+
+        if [[ $NaProvider = BAD || $NaStatus = BAD || $NaTiming = BAD ]]
+           then
+
+            manOVER
+
+            [[ $BooleanMO = TRUE ]] && AttemptedEntry[1]=TRUE
+        fi
+
+        [[ $NaProvider = GOOD && $NaStatus = BAD && $NaTiming = BAD ]] && AttemptedEntry[1]=TRUE
+
+        AttemptedEntry[0]=FINISHED
+       done
+
+    while [[ ${AttemptedEntry[0]} = FINISHED && ${AttemptedEntry[1]} = TRUE ]]
+       do
+        echo "Confirm the following entry [Y/N]?"
+        [[ -n ${AttemptedEntry[8]} ]] && echo -e ${AttemptedEntry[2]} ": "\t ${AttemptedEntry[4]} " in " ${AttemptedEntry[3]}
+        [[ -z ${AttemptedEntry[8]} ]] && echo "${AttemptedEntry[2]}: ${AttemptedEntry[5]};${AttemptedEntry[6]} in ${AttemptedEntry[3]} with ${AttemptedEntry[4]} for ${AttemptedEntry[7]}" | tr "-" " " | tr ";" "-"
+
+        read Answer
+        yesNO $Answer
+
+        if [[ $BooleanY = TRUE ]]
+           then
+            [[ -z ${AttemptedEntry[8]} ]] && echo "${AttemptedEntry[2]}__${AttemptedEntry[5]}__${AttemptedEntry[6]}__${AttemptedEntry[3]}__${AttemptedEntry[4]}__${AttemptedEntry[7]}__${AttemptedEntry[8]}" >> ./CALENDAR.DB
+            [[ -n ${AttemptedEntry[8]} ]] && echo "${AttemptedEntry[2]}__${AttemptedEntry[3]}__${AttemptedEntry[4]}__${AttemptedEntry[5]}" >> ./CALENDAR.DB # "__${AttemptedEntry[6]}__${AttemptedEntry[7]}" >> ./CALENDAR.DB
+        fi
+
+        AttemptedEntry[0]=COMPLETE
+       done
+}
+
+timeCONFLICTS()
+{
+    NaDate=$1
+    NaT1=$2
+    NaT2=$3
+    NaProv=$4
+    TooShort=FALSE
+    NaDuration=$( rangeDURATION $NaT1 $NaT2 )
+
+    BooleanL=TRUE
+    [[ ${AttemptedEntry[3]} == "OC" && NaDuration -le 89 ]] && outcallLOCAL ${AttemptedEntry[7]} $NaDate $NaProv
+    [[ $BooleanL = FALSE ]] && TooShort=TRUE
+
+    [[ $NaDuration -le 59 ]] && TooShort=TRUE
+
+    timeSLOT $NaProv $NaDate $NaT1 $NaT2
+
+    [[ $TooShort = TRUE ]] && echo "Duration of appointment ($NaDuration) is too short!" && NaTiming=BAD
+    [[ $TimeSlot = b2b ]] && echo "Appointment is a back to back!" && NaTiming=BAD
+    [[ $TimeSlot = overlap ]] && echo "Appointment overlaps!" && NaTiming=BAD
+
+    [[ $TooShort = FALSE && $TimeSlot = clear ]] && NaTiming=GOOD
+}
+
+timeSLOT()
+{
+    TsP=$1
+    TsD=$2
+    Ts1=$3
+    Ts2=$4
+    TimeSlot=clear
+    Dir0="./TMP_STO/LocatedEntries"
+
+    ScheduleEntries=$( countENTRIES $TsP $TsD )
+
+    [[ $Ts1 -le 1100 ]] && TimeSlot="offhours"
+    [[ $Ts2 -gt 2300 || $Ts2 -le 800 ]] && TimeSlot="offhours"
+
+    if [[ $ScheduleEntries != 0 ]]
+       then
+        for i in {1..$ScheduleEntries}
+           do
+            TmpStar=$( awk 'BEGIN {FS="__"} NR == '$i' { print $2 }' $Dir0 )
+            TmpStop=$( awk 'BEGIN {FS="__"} NR == '$i' { print $3 }' $Dir0 )
+
+            [[ $TmpStar -gt $Ts1 && $TmpStar -lt $Ts2 ]] && TimeSlot=overlap
+            [[ $TmpStop -gt $Ts1 && $TmpStop -lt $Ts2 ]] && TimeSlot=overlap
+            [[ $Ts1 -gt $TmpStar && $Ts2 -lt $TmpStop ]] && TimeSlot=overlap
+            [[ $Ts2 -gt $TmpStar && $Ts2 -lt $TmpStop ]] && TimeSlot=overlap
+            [[ $Ts1 = $TmpStop || $Ts2 = $TmpStar ]] && TimeSlot=b2b
+           done
+    fi
+}
+
+countENTRIES()
+{
+    CgP=$1
+    CgD=$2
+    Dir0="./CALENDAR.DB"
+    Dir1="./TMP_STO/LocatedEntries.data"
+
+    locateENTRY $Dir0 $CgD
+    locateAGAIN $CgP
+
+    Count=$( wc -l $Dir1 )
+
+    echo $Count
+}
+
+membershipSTATUS()
+{
+    Line=3
+    Field=4
+    Mbr=$1
+    locateFILE $Mbr
+    Membership=$( printFIELD $Directory $Line $Field )
+
+    if [[ $Membership = BANNED || $Membership = DEFUNCT || $Membership = APPROVED ]]
+       then
+        echo "Client is not an ACTIVE member."
+        echo "CAUTION: Client's status is $Membership"
+        NaStatus=BAD
+    fi
+}
+
+availableLOCATIONS()
+{
+    CrDate=$1
+    CrLoc=$2
+    Dir0="./CALENDAR.DB"
+    Dir1="./TMP_STO/LocatedEntries.data"
+    Dir2="./TMP_STO/dump.data"
+
+    locateENTRY $Dir0 $NaDate
+    locateAGAIN $NaLoc
+
+    awk 'BEGIN { FS="__" } NF == 4 { print $0 }' $Dir1 > $Dir2				#will need to change to "NF == 6" after Polishing Module
+
+    Locales=$( wc -l $Dir2 )
+}
+
+checkPROVIDER()
+{
+    CrDir0="./CALENDAR.DB"
+    CrProv=$1
+    CrDat=$2
+    CrLoc=$3
+
+    locateENTRY $CrDir0 $CrDat
+    locateAGAIN $CrLoc $CrProv
+
+    awk 'BEGIN { FS="__" } NF == 4 { print $0 }' $CrDir1 > $CrDir2				#will need to change to "NF == 6" after Polishing Module
+
+    [[ $( wc -l $CrDir2 ) != 0 ]] && BooleanP=TRUE
+}
+
+selectionSERIES()
+{
+	Modifier=$1
+
+	while [[ $BooleanQ != TRUE ]]
+	   do
+		while [[ $Modifier = A ]]
+		   do
+			Display=SelectA
+			loadINTERFACE $Display
+
+			selectLOCATION
+			[[ $Location != [Xx] ]] && selectDATE
+			[[ $Location != [Xx] && $Date != [Xx] ]] && displayPROVIDERS $Location $Date && selectPROVIDER
+			[[ $Location != [Xx] && $Date != [Xx] && $Provider != [Xx] ]] && selectMEMBER
+			[[ $Location != [Xx] && $Date != [Xx] && $Provider != [Xx] && $Member != [Xx] ]] && timeSTAMP
+
+			if [[ $Location != [Xx] && $Date != [Xx] && $Provider != [Xx] && $Member != [Xx] && $FirstTime != [Xx] && $SecondTime != [Xx] ]]
+			   then
+				conflictRESOLUTION "$Provider" $Location $Date $Time $Member
+
+				[[ $Conflict = UNRESOLVED ]] && return
+
+				echo "Confirm new Appointment [Y/N]:"
+				echo "$Date: $FirstTime;$SecondTime at $Location with $Provider for $Member" | tr "-" " " | tr ";" "-"
+				read Answer
+				yesNO $Answer
+
+				[[ $BooleanY = TRUE ]] && echo "$Date"\__"$FirstTime"\__$SecondTime\__$Location\__$Provider\__$Member\__"ACTIVE" >> ./CALENDAR.DB
+
+				locateFILE $Member
+				Line=3
+				Field=6
+				Duration=$( rangeDURATION $FirstTime $SecondTime )
+				NewData="$Date:$Duration$Location"
+
+				[[ $BooleanY != FALSE ]] && changeFIELD $Directory $Line $Field $NewData
+				if [[ $BooleanY != FALSE && $Location = OC ]]
+				   then
+					echo "Outcall Address:"
+					read Address
+
+					Address=$( spaceDASH "$Address" )
+
+					awk '!/no-outcalls/' $Directory > ./TMP_STO/dump.data
+					cat ./TMP_STO/dump.data > $Directory
+					echo "#XOO"\__"$Address"\__"$NewData" >> $Directory
+				fi
+			fi
+
+			BooleanY=FALSE
+			Modifier=NULL
+		   done
+
+		while [[ $Modifier = R ]]
+		   do
+			Display=SelectR
+			loadINTERFACE $Display
+
+			selectMEMBER
+			[[ $Member != [Xx] ]] && selectPROVIDER
+			[[ $Member != [Xx] && $Provider != [Xx] ]] && selectDATE
+
+			resultsVIEW $Member "$Provider" $Date > Directory="./TMP_STO/LocatedEntries.data"
+			cat ./TMP_STO/LocatedEntries.data
+			echo "Select by Line Number[#]:"
+			read Line
+
+			Modifier=NULL
+		   done
+
+		BooleanQ=TRUE
+	   done
+
+	BooleanQ=FALSE
+}
+
+resultsVIEW()
+{
+	Member=$1
+	Provider=$2
+	Date=$3
+
+	cat ./CALENDAR.DB | pr -n -l30 | grep -i -e $Member | grep -i -e $Provider | grep -i -e $Date
+}
+
+rmAPPT()
+{
+	Date=$1
+
+	Directory="./CALENDAR.DB"
+	[[ -z $Date ]] && selectDATE
+
+	pr -n -l1 $Directory | grep $Date | sed 's/__/|/' | sed 's/__/\t/g' | tr "-" " "
+
+	[[ $Date != [Xx] ]] && selectLINE $Directory && rmLINE $Directory $Line
+	[[ $Date = [Xx] ]] && BooleanQ=FALSE
+}
+
+timeSTAMP()
+{
+	echo "Start Time:"
+	selectTIME
+	FirstTime="$Time"
+
+	echo "End Time:"
+	selectTIME
+	SecondTime="$Time"
+}
+
+separateDATE()
+{
+	Date0=$1
+
+	Day01=$( echo $Date0 | cut -c1 )
+	Day02=$( echo $Date0 | cut -c2 )
+	Day0=$Day01$Day02
+	Month01=$( echo $Date0 | cut -c3 )
+	Month02=$( echo $Date0 | cut -c4 )
+	Month0=$Month01$Month02
+	Year0=$( echo $Date0 | cut -c5- )
+}
+
+reduceDATE()
+{
+	DateR=$1
+
+	separateDATE $DateR
+	monthLENGTH $DateR
+	MonthR=$Month0
+	YearR=$Year0
+	FormulaD="$( echo $Day0 | sed 's/^0*//' ) - 1"
+	FormulaM="$( echo $Month0 | sed 's/^0*//' ) - 1"
+	FormulaY="$( echo $Year0 | sed 's/^0*//' ) - 1"
+
+	[[ $( echo $Day0 | sed 's/^0*//' ) -gt 1 ]] && DayR=$( echo $FormulaD | bc )
+	[[ $Day0 = "01" ]] && DayR=$Count2 && MonthR=$( echo $FormulaM | bc )
+	[[ $MonthR = 0 ]] && MonthR=12 && YearR=$( echo $FormulaY | bc )
+
+	[[ $( echo $DayR | wc -c ) = 2 ]] && DayR="0$DayR"
+	[[ $( echo $MonthR | wc -c ) = 2 ]] && MonthR="0$MonthR"
+	[[ $( echo $YearR | wc -c ) = 2 ]] && YearR="0$YearR"
+
+	DateR="$DayR$MonthR$YearR"
+	echo $DateR
+}
+
+increaseDATE()
+{
+	DateI=$1
+
+	separateDATE $DateI
+	monthLENGTH $DateI
+	MonthI=$Month0
+	YearI=$Year0
+	FormulaD="$( echo $Day0 | sed 's/^0*//' ) + 1"
+	FormulaM="$( echo $Month0 | sed 's/^0*//' ) + 1"
+	FormulaY="$( echo $Year0 | sed 's/^0*//' ) + 1"
+
+#	[[ $Day01 -lt $Count ]] && DayI=$( echo $FormulaD | bc )
+	[[ $Day01 = 0 && $Day02 -lt $Count ]] && DayI=$( echo $FormulaD | bc )
+	[[ $Day01 != 0 && $Day0 -lt $Count ]] && DayI=$( echo $FormulaD | bc )
+	[[ $Day0 = $Count ]] && DayI="01" && MonthI=$( echo $FormulaM | bc )
+	[[ $MonthI = 13 ]] && MonthI="01" && YearI=$( echo $FormulaY | bc )
+
+	[[ $( echo $DayI | wc -c ) = 2 ]] && DayI="0$DayI"
+	[[ $( echo $MonthI | wc -c ) = 2 ]] && MonthI="0$MonthI"
+	[[ $( echo $YearI | wc -c ) = 2 ]] && YearI="0$YearI"
+
+	DateI="$DayI$MonthI$YearI"
+	echo $DateI
+}
+
+monthLENGTH()
+{
+	DateM=$1
+	separateDATE $DateM
+
+	if [[ $Month0 = 02 ]]
+	   then
+		leapYEAR "$DateM"
+
+		[[ $BooleanL != FALSE ]] && Count=28
+		[[ $BooleanL = FALSE ]] && Count=29
+		Count2=31
+	fi
+
+	if [[ $Month0 = "03" ]]
+	   then
+		Count=31
+		[[ $BooleanL = FALSE ]] && Count2=28
+		[[ $BooleanL = TRUE ]] && Count2=29
+	fi
+
+	[[ $Month0 = "01" || $Month0 = "08" ]] && Count=31 && Count2=31
+	[[ $Month0 = "05" || $Month0 = "07" || $Month0 = "10" || $Month0 = "12" ]] && Count=31 && Count2=30
+	[[ $Month0 = "04" || $Month0 = "06" || $Month0 = "09" || $Month0 = "11" ]] && Count=30 && Count2=31
+}
+
+main()
+{
+	touchFILES
+	setGLOBALS
+	setDIMENSIONS
+	userINTERFACE
+	cleanUP
+}
+
+main
+exit
